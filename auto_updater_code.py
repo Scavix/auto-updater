@@ -1,88 +1,64 @@
 import requests
 import PySimpleGUI as sg
-from bs4 import BeautifulSoup
-from datetime import datetime
-import os.path
+import subprocess
+
+version = "1.0.0"
 
 def main():
-    layout = [  [sg.Text('Enter URL'), sg.InputText(key='-URL-', default_text='Insert URL here'), sg.Text('Enter Category'), sg.Combo(values=('Generic', 'Computer sciences', 'Mathematics', 'Computer utils'), default_value='Generic', readonly=True, k='-COMBO-'), sg.Checkbox("Bold", key="-RADIO-", default=False)],
-                [sg.Multiline(expand_x=True, expand_y=True, key='-OUTPUTGEN-', default_text=outstrings[0])],
-                [sg.Multiline(expand_x=True, expand_y=True, key='-OUTPUTCS-', default_text=outstrings[1])],
-                [sg.Multiline(expand_x=True, expand_y=True, key='-OUTPUTMATH-', default_text=outstrings[2])],
-                [sg.Multiline(expand_x=True, expand_y=True, key='-OUTPUTCSUTILS-', default_text=outstrings[3])],
-                [sg.Button('Add'), sg.Button('Generate Source'), sg.Button('Build Script'), sg.Button('Exit and Save'), sg.Button('Check update'),sg.Button('Exit')]]
+    layout = [[sg.Button('Generate Source'), sg.Button('Build Script'), sg.Button('Check update'), sg.Button('Exit')]]
 
-    window = sg.Window('Url generate', layout, element_justification='c', finalize=True, size=(800, 300))
+    window = sg.Window('Auto updater ' + version, layout,
+                       element_justification='c', finalize=True)
 
     try:
         while True:
             event, values = window.read()
-            if event == sg.WIN_CLOSED or event == 'Exit and Save':
-                break
-            if event == 'Exit':
-                for cache in cachefiles:
-                    if os.path.isfile(cache):
-                        os.remove(cache)
+            if event == 'Exit' or event == sg.WIN_CLOSED:
                 break
             elif event == 'Generate Source':
-                response = requests.get("https://raw.githubusercontent.com/Scavix/link-handler/main/helper_links_code.py")
-                if response.status_code == 200:
-                    f = open("helper_links_code.py", "w")
-                    f.write(response.text)
-                    f.close()
-                    sg.popup("Done")
-                else:
-                    sg.popup("Web site does not exist or is not reachable")
+                download_source()
             elif event == 'Build Script':
-                response = requests.get("https://raw.githubusercontent.com/Scavix/link-handler/main/helper_links_build_script.bat")
+                download_build_script()
+            elif event == 'Check update':
+                response = requests.get("https://raw.githubusercontent.com/Scavix/auto-updater/main/version.json")
                 if response.status_code == 200:
-                    f = open("helper_links_build_script.bat", "w")
-                    f.write(response.text)
-                    f.close()
-                    sg.popup("Done")
-                else:
-                    sg.popup("Web site does not exist or is not reachable")
-            elif event == 'Add':
-                url=window['-URL-'].get()
-                category=window['-COMBO-'].get()
-                radio=window['-RADIO-'].get()
-                if url == "" or url == "Enter URL":
-                    sg.popup("URL is empty")
-                    continue
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
-                }
-                response = requests.get(values['-URL-'], headers=headers)
-                if response.status_code == 200:
-                    if response.headers['Content-Type'].__contains__('application/pdf'):
-                        title = url.split('/')[-1]
-                        outstrings[get_i_from_cat(category)] += "<li><a href = \"" + str(url).strip() + "\">" + ("<b>" if radio else "") + str(title) + ("</b>" if radio else "") + "</a></li>\n"
-                    elif not response.headers['Content-Type'].__contains__('text/html'):
-                        sg.popup("Web site is not HTML\n"+response.status_code)
-                        continue
+                    if response.json()["version"] != version:
+                        if sg.popup_yes_no("New version available: " + response.json()["version"] + ". Do you want to update?", title="To update") == "Yes":
+                            download_source()
+                            download_build_script()
+                            subprocess.run([r"auto_updater_build_script.bat"])
+                            sg.popup("Done")
+                            break
                     else:
-                        soup = BeautifulSoup(response.content, 'html.parser')
-                        title = soup.title.string
-                        outstrings[get_i_from_cat(category)] += "<li><a href = \"" + str(url).strip() + "\">" + ("<b>" if radio else "") + str(title) + ("</b>" if radio else "") + "</a></li>\n"
-                        save_to(cachefiles[get_i_from_cat(category)],outstrings[get_i_from_cat(category)])
+                        sg.popup("No new version available, actual: " + response.json()["version"], title="Updated")
                 else:
-                    sg.popup("Web site does not exist or is not reachable\n"+response.status_code+"\n"+response.reason+"\n"+response.text)
-            
-                window['-OUTPUTGEN-'].update(value=outstrings[0])
-                window['-OUTPUTCS-'].update(value=outstrings[1])
-                window['-OUTPUTMATH-'].update(value=outstrings[2])
-                window['-OUTPUTCSUTILS-'].update(value=outstrings[3])
-                window['-URL-'].update(value="")
+                    sg.popup("Web site does not exist or is not reachable\n" +
+                             response.status_code+"\n"+response.reason+"\n"+response.text)
     except:
-        for i in range(len(outstrings)):
-            save_to(cachefiles[i],outstrings[i])
-        sg.popup("Found exception, cache saved")
+        sg.popup("Found exception, closing...")
     window.close()
 
-def save_to(dir,myStr):
-    f = open(dir, "w")
-    f.write(myStr)
-    f.close()
+def download_source():
+    response = requests.get(
+        "https://raw.githubusercontent.com/Scavix/auto-updater/main/auto_updater_code.py")
+    if response.status_code == 200:
+        f = open("auto_updater_code.py", "w")
+        f.write(response.text)
+        f.close()
+        sg.popup("Done")
+    else:
+        sg.popup("Web site does not exist or is not reachable")
+
+def download_build_script():
+    response = requests.get(
+        "https://raw.githubusercontent.com/Scavix/auto-updater/main/auto_updater_build_script.bat")
+    if response.status_code == 200:
+        f = open("auto_updater_build_script.bat", "w")
+        f.write(response.text)
+        f.close()
+        sg.popup("Done")
+    else:
+        sg.popup("Web site does not exist or is not reachable")
 
 if __name__ == "__main__":
     main()

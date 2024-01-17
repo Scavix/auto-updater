@@ -1,6 +1,7 @@
 import requests
 import PySimpleGUI as sg
 import subprocess
+import os
 
 version = "1.0.0"
 
@@ -16,18 +17,26 @@ def main():
             if event == 'Exit' or event == sg.WIN_CLOSED:
                 break
             elif event == 'Generate Source':
-                download_source()
+                if download_source():
+                    sg.popup("Done")
+                else:
+                    sg.popup("Web site does not exist or is not reachable")
             elif event == 'Build Script':
-                download_build_script()
+                if download_build_script():
+                    sg.popup("Done")
+                else:
+                    sg.popup("Web site does not exist or is not reachable")
             elif event == 'Check update':
                 response = requests.get("https://raw.githubusercontent.com/Scavix/auto-updater/main/version.json")
                 if response.status_code == 200:
                     if response.json()["version"] != version:
                         if sg.popup_yes_no("New version available: " + response.json()["version"] + ". Do you want to update?", title="To update") == "Yes":
-                            download_source()
-                            download_build_script()
-                            subprocess.run([r"auto_updater_build_script.bat"])
-                            sg.popup("Done")
+                            if download_both():
+                                subprocess.run([r"auto_updater_build_script.bat"])
+                                sg.popup("Done")
+                                window.close()
+                            else:
+                                sg.popup("Web site does not exist or is not reachable")
                             break
                     else:
                         sg.popup("No new version available, actual: " + response.json()["version"], title="Updated")
@@ -45,9 +54,9 @@ def download_source():
         f = open("auto_updater_code.py", "w")
         f.write(response.text)
         f.close()
-        sg.popup("Done")
+        return True
     else:
-        sg.popup("Web site does not exist or is not reachable")
+        return False
 
 def download_build_script():
     response = requests.get(
@@ -56,9 +65,21 @@ def download_build_script():
         f = open("auto_updater_build_script.bat", "w")
         f.write(response.text)
         f.close()
-        sg.popup("Done")
+        return True
     else:
-        sg.popup("Web site does not exist or is not reachable")
+        return False
+
+def download_both():
+    res1=download_source()
+    res2=download_build_script()
+    if res1 and res2:
+        return True
+    else:
+        if res1:
+            os.remove("auto_updater_code.py")
+        if res2:
+            os.remove("auto_updater_build_script.bat")
+        return False
 
 if __name__ == "__main__":
     main()

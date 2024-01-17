@@ -1,6 +1,6 @@
 {
     "name": "Auto updater",
-    "version": "1.0.1",
+    "version": "1.0.0",
     "description": "This is my template application for self updating programs",
     "author": "Scavix",
     "license": "MIT",

@@ -33,6 +33,9 @@ def main():
                         if sg.popup_yes_no("New version available: " + response.json()["version"] + ". Do you want to update?", title="To update") == "Yes":
                             if download_both():
                                 subprocess.run([r"auto_updater_build_script.bat"])
+                                os.remove("auto_updater_code.py")
+                                os.remove("auto_updater_build_script.bat")
+                                os.remove("auto_updater_code.spec")
                                 sg.popup("Done")
                                 window.close()
                             else:
